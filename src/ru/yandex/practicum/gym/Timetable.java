@@ -5,60 +5,46 @@ import java.util.*;
 public class Timetable {
 
     private final Map<DayOfWeek, TreeMap<TimeOfDay, List<TrainingSession>>> timetable;
-    private final Map<DayOfWeek, List<TrainingSession>> dayCache;
+
 
     public Timetable() {
         timetable = new HashMap<>();
-        dayCache = new HashMap<>();
-        for (DayOfWeek day : DayOfWeek.values()) {
-            timetable.put(day, new TreeMap<>());
-        }
+
     }
 
     public void addNewTrainingSession(TrainingSession trainingSession) {
         DayOfWeek day = trainingSession.getDayOfWeek();
         TimeOfDay time = trainingSession.getTimeOfDay();
 
-        TreeMap<TimeOfDay, List<TrainingSession>> scheduleDay = timetable.get(day);
-        List<TrainingSession> sessions = scheduleDay.get(time);
-        if (sessions == null) {
-            sessions = new ArrayList<>();
-            scheduleDay.put(time, sessions);
-        }
-        sessions.add(trainingSession);
+        TreeMap<TimeOfDay, List<TrainingSession>> daySchedule =
+                timetable.computeIfAbsent(day, d -> new TreeMap<>());
 
-        dayCache.remove(day);
-        //сохраняем занятие в расписании
+        List<TrainingSession> sessionsAtTime =
+                daySchedule.computeIfAbsent(time, t -> new ArrayList<>());
+
+        sessionsAtTime.add(trainingSession);
     }
 
-    public List<TrainingSession> getTrainingSessionsForDay(DayOfWeek dayOfWeek) {
-        if (dayCache.containsKey(dayOfWeek)) {
-            List<TrainingSession> cached = dayCache.get(dayOfWeek);
-            return new ArrayList<>(cached);
-        }
-        TreeMap<TimeOfDay, List<TrainingSession>> scheduleDay = timetable.get(dayOfWeek);
-        List<TrainingSession> result = new ArrayList<>();
+    public TreeMap<TimeOfDay, List<TrainingSession>> getTrainingSessionsForDay(DayOfWeek dayOfWeek) {
+        TreeMap<TimeOfDay, List<TrainingSession>> schedule = timetable.get(dayOfWeek);
 
-        for (List<TrainingSession> sessions : scheduleDay.values()) {
-            result.addAll(sessions);
+        if (schedule == null) {
+            return new TreeMap<>();
         }
 
-        dayCache.put(dayOfWeek, new ArrayList<>(result));
-
-        return result;
+        return schedule;
     }
 
     //как реализовать, тоже непонятно, но сложность должна быть О(1)
 
 
     public List<TrainingSession> getTrainingSessionsForDayAndTime(DayOfWeek dayOfWeek, TimeOfDay timeOfDay) {
+        TreeMap<TimeOfDay, List<TrainingSession>> dayMap = timetable.get(dayOfWeek);
+        if (dayMap == null) return Collections.emptyList();
 
-        TreeMap<TimeOfDay, List<TrainingSession>> scheduleDay = timetable.get(dayOfWeek);
-        List<TrainingSession> sessions = scheduleDay.get(timeOfDay);
+        List<TrainingSession> sessions = dayMap.get(timeOfDay);
+        if (sessions == null) return Collections.emptyList();
 
-        if (sessions == null) {
-            return Collections.emptyList();
-        }
         return new ArrayList<>(sessions);
         //как реализовать, тоже непонятно, но сложность должна быть О(1)
     }
@@ -66,18 +52,15 @@ public class Timetable {
     public List<CounterOfTrainings> getCountByCoaches() {
         Map<Coach, Integer> coachCountMap = new HashMap<>();
 
-        for (DayOfWeek day : DayOfWeek.values()) {
-            TreeMap<TimeOfDay, List<TrainingSession>> daySchedule = timetable.get(day);
-
-
+        for (TreeMap<TimeOfDay, List<TrainingSession>> daySchedule : timetable.values()) {
             for (List<TrainingSession> sessionsAtTime : daySchedule.values()) {
                 for (TrainingSession session : sessionsAtTime) {
                     Coach coach = session.getCoach();
-                    int currentCount = coachCountMap.getOrDefault(coach, 0);
-                    coachCountMap.put(coach, currentCount + 1);
+                    coachCountMap.put(coach, coachCountMap.getOrDefault(coach, 0) + 1);
                 }
             }
         }
+
 
         List<CounterOfTrainings> result = new ArrayList<>();
         for (Map.Entry<Coach, Integer> entry : coachCountMap.entrySet()) {
@@ -85,8 +68,6 @@ public class Timetable {
         }
 
         Collections.sort(result);
-
         return result;
     }
-
 }
